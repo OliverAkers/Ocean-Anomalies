@@ -1,0 +1,132 @@
+---
+title: "MTH6139 Time Series" 
+subtitle: "Coursework 1 -- 220282871" 
+author: "Oliver Akers" 
+date: "Spring term 2025" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+ 
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+
+# Global ocean temperature anomalies 1880-2024
+The chosen dataset in question is that of Global Ocean Temperature Anomalies taken annually from 1880 to 2024. It records these temperature annomalies in degree Celsius.
+
+> <font size="5">❗️</font> **My Reasoning**
+> 
+> This time series was selected because oceans are responsible for absorbing the vast majority of the Earth's excess heat from global warming (Salas 2025). This has led to sea levels rising and ignited a global conversation surrounding how we can reduce these changes that has gained increasing momentum since the early 2000s.
+
+## 1.1 The Dataset
+To begin, the dataset was in an excel format containing a column titled *year* which was not only incorrectly named-alongside the other remaining column-but also given in the wrong data format. This meant that once it was imported into RStudio, its columns had to be renamed and then the time column data to be reformatted.
+
+*Note that many of the packages were made for RStudio version 4.3.3, this being a prior-yet compatible-version to the most current used in this project as of 12-03-2025.*
+
+```{r}
+library(readxl)
+Temp_Anomalies <- read_excel("data/Global-Ocean-Temperature-Anomalies.xlsx", skip = 1)
+```
+The dataset was named "**Temp_Anomalies**", the skip parameter was used due to the excel data containing a title. 
+
+The Dataset contained 145 observations of 2 variables.
+
+### 1.1.2 Preparing The Data For *Prophet*
+Next the  columns were renamed for the prophet package to read properly.
+
+```{r}
+colnames(Temp_Anomalies) = c("ds", "y")
+```
+
+Following this, the column now titled "**ds**" must have its format changed to ensure compatibility with *Prophet*. To do this, use the `as.Date` function found within the *zoo* package to create a date format `YYYY-MM-DD` that can then be changed into the required `POSIXct` layout.
+
+*The `$` is used to select the column that needs changing within the data frame.*
+
+```{r, results = FALSE, message=FALSE, warning=FALSE}
+library(zoo)
+Temp_Anomalies$ds = as.POSIXct(zoo::as.Date(paste(Temp_Anomalies$ds, 1, 1), '%Y %m %d'))
+```
+
+Without this step, using *Prophet* would have resulted in an error code. This is because *Prophet* uses `POSIXct` format, not `Date` for time series data.
+
+## 1.2 The Model
+Now that the data was in a compatible form to *prophet* we could begin creating our model and predictions. Ten years of future predictions is a suitable amount to predict using *prophet* and does enough to provide this coursework with sufficient material.
+
+```{r,results = FALSE, message=FALSE, warning=FALSE}
+Ocean_Model = prophet::prophet(Temp_Anomalies)
+```
+
+After we call the `prophet` function to fit the model. This, we will label '**Ocean_Model**'.
+
+Now we have have the model, we call the `make_future_dataframe` function to forecast ten results from the suitable data frame model. Labelling it '**Ocean_Future**'.
+
+```{r,results = FALSE, message=FALSE, warning=FALSE}
+Ocean_Future = prophet::make_future_dataframe(Ocean_Model, periods = 10, freq = "year")
+```
+
+Finally, in preparing the data to create a visualisation of this time series, we call the `predict` function to create our functional forecast we will graph. We will label this '**Ocean_Prediction**'
+
+```{r,results = FALSE, message=FALSE, warning=FALSE}
+Ocean_Prediction = predict(Ocean_Model, Ocean_Future)
+```
+
+## 1.3 The Graph
+Using the variables create in Section 1.2, the `plot` function creates a visual graph of the results.
+
+```{r, fig.width=8, fig.height=6}
+plot(Ocean_Model, Ocean_Prediction)
+```
+
+However, this graph does not provide the visual clarity that it is supposed to. It lacks proper titles.
+```{r, fig.width=8, fig.height=6}
+library(ggplot2)
+p <- plot(Ocean_Model, Ocean_Prediction)
+p + 
+  ggtitle("Annual anomalies in global ocean surface temperature from 1880 to 2024") +
+  xlab("Year") + 
+  ylab("Temperature in degrees Celsius")
+```
+
+## 1.4 Conclusion
+Looking at our forecast using the *prophet* package, we can clearly see that in 10 years, given that we continue at the rate we have been going at previously, ocean temperatures will continue to increase year on year beyond what is expected when comparing with average temperature changes. 
+
+Not only this, but observing the last two datapoints-2023 and 2024- that have both boasted a massive increase in annual anomalies, it is possible that this graph underestimates the potentially massive slope that is begging to take shape.
+
+To highlight this, we can subset the dataframe fro the range 2015 to 2024. This way, *prophet* will use only those years to generate its forecasts. When doing this, the forecast as expected is much more dramatic.
+
+Subsetting
+```{r,results = FALSE, message=FALSE, warning=FALSE }
+subset_data <- subset(Temp_Anomalies, ds >= "2010-01-01" & ds <= "2024-12-31")
+```
+
+The remaining process is the same as previously with the exception being that the dataframe used only contains the years 2015 onwards.
+```{r,results = FALSE, message=FALSE, warning=FALSE }
+New_Ocean_Model <- prophet::prophet(subset_data)
+New_Ocean_Future <- prophet::make_future_dataframe(New_Ocean_Model, periods = 10, freq = "year")
+New_Ocean_Prediction <- predict(New_Ocean_Model, New_Ocean_Future)
+```
+
+Plotting the data.
+```{r, fig.width=8, fig.height=6}
+p <- plot(New_Ocean_Model, New_Ocean_Prediction)
+p + 
+  ggtitle("Annual anomalies in global ocean surface temperature from 2015 to 2024") +
+  xlab("Year") + 
+  ylab("Temperature in degrees Celsius")
+```
+
+
+This is worrying for our global health and should be taken seriously by all countries. Fortunately, their are many current efforts taking place to combat climate change with some notable ones being Climeworks, ZeroAvia, and Carbon Engineering to name a few. Only time will tell what Climate Change will amount to, but one thing for sure is that if it is left unchecked it will rapidly become a problem we no longer have the time left to reverse.
+
+# References
+
+- Statista Data,  Feb 11, 2025: <https://www.statista.com/statistics/736147/ocean-temperature-anomalies-based-on-temperature-departure/>
+- Article by Erick Burgueño Salas, Feb 11, 2025: <https://www.statista.com/statistics/736147/ocean-temperature-anomalies-based-on-temperature-departure/>
